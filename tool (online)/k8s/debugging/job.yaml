@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job30
+spec:
+  template:
+    metadata:
+      name: job30
+    spec:
+      containers:
+      - name: job5-container
+        image: registry.default.svc.cluster.local/job30-image
+        imagePullPolicy: Always
+        command: ["/bin/sh", "-c"]
+        args: ["echo Hello, Kubernetes!"]
+      imagePullSecrets:
+      - name: insecure-registry
+      restartPolicy: Never
+  backoffLimit: 4

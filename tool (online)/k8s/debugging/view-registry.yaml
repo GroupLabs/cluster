@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: registry-viewer
+spec:
+  containers:
+  - name: registry-viewer
+    image: curlimages/curl
+    command: ["/bin/sh", "-c", "while true; do sleep 30; done"]
+
+# To use:
+# kubectl exec -it registry-viewer -- /bin/sh
+# curl -X GET http://registry:5000/v2/_catalog
+# curl -X GET http://registry:5000/v2/<image-name>/tags/list

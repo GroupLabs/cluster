@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dns-debug
+spec:
+  containers:
+  - name: dns-debug
+    image: busybox
+    command:
+      - sleep
+      - "3600"
+  restartPolicy: Always

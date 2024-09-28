@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-write-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: test-container
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args: ["echo 'Hello, Kubernetes!' > /mnt/data/hello.txt && cat /mnt/data/hello.txt"]
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /mnt/data
+      restartPolicy: Never
+      volumes:
+      - name: shared-volume
+        persistentVolumeClaim:
+          claimName: example-pvc
