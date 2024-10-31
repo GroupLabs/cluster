@@ -1,0 +1,16 @@
+# registry-clusterip-service.yaml
+# for internal access
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-registry
+  namespace: default
+spec:
+  selector:
+    app: docker-registry
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+  type: ClusterIP

@@ -1,7 +1,0 @@
-{
-	"auths": {
-		"https://registry.hub.docker.com/v2/": {
-			"auth": "bm9lbGZyYW50aG9tYXM6enVzdnlmLXhhbmJ5Yi0xbUl3Zmk="
-		}
-	}
-}
