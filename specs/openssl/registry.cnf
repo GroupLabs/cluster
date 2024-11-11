@@ -1,0 +1,20 @@
+[req]
+default_bits = 4096
+prompt = no
+default_md = sha256
+distinguished_name = dn
+req_extensions = req_ext
+
+[dn]
+C = US
+ST = State
+L = City
+O = Organization
+OU = OrgUnit
+CN = docker-registry.default.svc.cluster.local
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = docker-registry.default.svc.cluster.local

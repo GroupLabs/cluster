@@ -1,0 +1,23 @@
+# results-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: results-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/mnt/results" # For Minikube; adjust if using cloud storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: results-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
