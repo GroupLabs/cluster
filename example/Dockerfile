@@ -2,7 +2,7 @@ FROM python:3.8-slim
 
 WORKDIR /app
 
-RUN pip install pandas
+RUN pip install pandas numpy
 
 COPY . /app
 RUN ls /app  # Debugging step to confirm files are copied correctly

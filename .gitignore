@@ -11,3 +11,5 @@
 *.srl
 *.csr
 kubectl*
+
+__pycache__

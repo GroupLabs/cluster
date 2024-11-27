@@ -12,9 +12,10 @@ spec:
       labels:
         app: upload-service
     spec:
+      serviceAccountName: upload-service-sa
       containers:
         - name: upload-service
-          image: docker-registry.default.svc.cluster.local:5000/upload_service:latest # update this as necessary
+          image: upload_service:latest # update this as necessary
           imagePullPolicy: Never
           ports:
             - containerPort: 80

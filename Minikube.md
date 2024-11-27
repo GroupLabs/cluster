@@ -43,8 +43,9 @@ kubectl apply -f specs/upload-service-service.yaml
 kubectl apply -f specs/kaniko-job-role.yaml
 kubectl apply -f specs/kaniko-job-rolebinding.yaml
 kubectl apply -f specs/results-pv.yaml
-
-
+kubectl apply -f specs/upload-service-job-role.yaml
+kubectl apply -f specs/upload-service-rolebinding.yaml
+kubectl apply -f specs/upload-service-sa.yaml
 
 MAKE HOSTNAME RESOLVABLE BY NODES (Do this second)
 
@@ -55,8 +56,8 @@ Edit the /etc/hosts File manually
 minikube ssh
 sudo vi /etc/hosts
 
-Add the following line to the etc/hosts file (this example assumes the cluster IP is 10.110.39.252)
-10.109.120.3 docker-registry.default.svc.cluster.local
+Add the following line to the etc/hosts file (this example assumes the cluster IP is 10.103.114.0)
+10.103.114.0 docker-registry.default.svc.cluster.local
 
 ^^ Make sure to replace it with the cluster IP from the previous command
 
@@ -71,9 +72,9 @@ minikube cp ca.crt /home/docker/ca.crt
 
 minikube ssh
 
-sudo mkdir -p /etc/docker/certs.d/10.109.120.3:5000
+sudo mkdir -p /etc/docker/certs.d/10.103.114.0:5000
 
-sudo mv /home/docker/ca.crt /etc/docker/certs.d/10.109.120.3:5000/ca.crt
+sudo mv /home/docker/ca.crt /etc/docker/certs.d/10.103.114.0:5000/ca.crt
 
 sudo systemctl restart docker
 
