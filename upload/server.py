@@ -3,10 +3,13 @@ import os
 import tempfile
 import uuid
 import zipfile
+import secrets
+import string
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from typing import Optional
 from kubernetes import client, config
 
 app = FastAPI()
@@ -417,3 +420,254 @@ async def get_job_logs(job_name: str):
         else:
             logging.error(f"Exception when retrieving logs for job '{job_name}': {e}")
             raise HTTPException(status_code=500, detail="Error retrieving pod logs.")
+
+@app.post("/ephemeral_notebook/")
+async def create_ephemeral_notebook(
+    session_name: str = Form(...),
+    image_name: str = Form(...),
+    token: Optional[str] = Form(None),
+    ttl_seconds: int = Form(300),  # auto-delete job after 5 minutes of completion
+    base_domain: str = Form("notebooks.local")
+):
+    """
+    Creates:
+    1) A K8s Job for an ephemeral Jupyter session (with a TTL).
+    2) A Service (ClusterIP) to target the Pod.
+    3) An Ingress with host-based routing, e.g. <session_name>.<base_domain>.
+    """
+
+    if not session_name:
+        raise HTTPException(status_code=400, detail="session_name is required")
+    if not image_name:
+        raise HTTPException(status_code=400, detail="image_name is required")
+
+    # Generate random token if none supplied
+    if not token:
+        token = generate_random_token(16)
+
+    # Namespaced resources
+    namespace = "default"
+
+    # Resource names
+    job_name = f"{session_name}-job"
+    svc_name = f"{session_name}-svc"
+    ingress_name = f"{session_name}-ing"
+
+    # The jupyter notebook port
+    notebook_port = 8888
+
+    # The host for this ephemeral notebook, e.g. "my-session.yourdomain.com"
+    notebook_host = f"{session_name}.{base_domain}"
+
+    # Step 1: Create ephemeral Job
+    try:
+        create_jupyter_job(
+            job_name=job_name,
+            namespace=namespace,
+            image_name=image_name,
+            token=token,
+            port=notebook_port,
+            ttl_seconds=ttl_seconds
+        )
+    except client.exceptions.ApiException as e:
+        logging.error(f"Error creating Job: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Step 2: Create Service (ClusterIP)
+    try:
+        create_jupyter_service(
+            svc_name=svc_name,
+            namespace=namespace,
+            job_label=job_name,  # labels the pod with app=job_name
+            port=notebook_port
+        )
+    except client.exceptions.ApiException as e:
+        logging.error(f"Error creating Service: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Step 3: Create Ingress with host-based routing
+    try:
+        create_jupyter_ingress(
+            ingress_name=ingress_name,
+            namespace=namespace,
+            svc_name=svc_name,
+            port=notebook_port,
+            host=notebook_host
+        )
+    except client.exceptions.ApiException as e:
+        logging.error(f"Error creating Ingress: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Return the host-based URL
+    # If you have TLS, it would be https://
+    jupyter_url = f"http://{notebook_host}/?token={token}"
+
+    return {
+        "message": "Ephemeral Jupyter notebook created",
+        "job_name": job_name,
+        "service_name": svc_name,
+        "ingress_name": ingress_name,
+        "token": token,
+        "jupyter_url": jupyter_url
+    }
+
+def create_jupyter_job(job_name: str,
+                       namespace: str,
+                       image_name: str,
+                       token: str,
+                       port: int,
+                       ttl_seconds: int):
+    """
+    Creates a K8s Job that runs a Jupyter notebook container and sets a TTL
+    so it auto-deletes after completion. The user can kill the notebook
+    from within or once they close the Pod, it eventually completes.
+    """
+    batch_v1 = client.BatchV1Api()
+
+    # Command to run Jupyter in ephemeral mode
+    command = [
+        "jupyter",
+        "notebook",
+        f"--port={port}",
+        "--ip=0.0.0.0",
+        "--no-browser",
+        "--allow-root",
+        f"--NotebookApp.token={token}",
+        "--NotebookApp.password=''",
+        "--NotebookApp.default_url=/lab"
+    ]
+
+    job_manifest = {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+            "name": job_name
+        },
+        "spec": {
+            "ttlSecondsAfterFinished": ttl_seconds,
+            "template": {
+                "metadata": {
+                    # Label used to select the Pod with the Service.
+                    "labels": {
+                        "app": job_name
+                    }
+                },
+                "spec": {
+                    "restartPolicy": "Never",
+                    "containers": [
+                        {
+                            "name": "jupyter",
+                            "image": image_name,
+                            "command": command,
+                            "ports": [{"containerPort": port}],
+                            "resources": {
+                                "requests": {"memory": "512Mi", "cpu": "250m"},
+                                "limits":   {"memory": "1Gi",  "cpu": "500m"}
+                            }
+                        }
+                    ],
+                }
+            }
+        }
+    }
+    batch_v1.create_namespaced_job(namespace=namespace, body=job_manifest)
+    logging.info(f"Job '{job_name}' created in '{namespace}'")
+
+def create_jupyter_service(svc_name: str,
+                           namespace: str,
+                           job_label: str,
+                           port: int):
+    """
+    Creates a ClusterIP Service that routes to the Pod labeled app=job_label.
+    """
+    core_v1 = client.CoreV1Api()
+
+    service_manifest = {
+        "apiVersion": "v1",
+        "kind": "Service",
+        "metadata": {
+            "name": svc_name
+        },
+        "spec": {
+            "type": "ClusterIP",
+            "selector": {
+                "app": job_label
+            },
+            "ports": [
+                {
+                    "port": port,
+                    "targetPort": port
+                }
+            ]
+        }
+    }
+
+    core_v1.create_namespaced_service(namespace=namespace, body=service_manifest)
+    logging.info(f"Service '{svc_name}' created in '{namespace}'")
+
+def create_jupyter_ingress(ingress_name: str,
+                           namespace: str,
+                           svc_name: str,
+                           port: int,
+                           host: str):
+    """
+    Creates an Ingress route on host=<host>, forwarding traffic to the Service <svc_name>:<port>.
+    Assumes an Ingress controller (like NGINX) is set up in the cluster.
+    TLS configuration or annotations can be added if you want HTTPS.
+    """
+    networking_v1 = client.NetworkingV1Api()
+
+    # Basic host-based routing, HTTP only for now
+    ingress_manifest = {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "Ingress",
+        "metadata": {
+            "name": ingress_name,
+            # Add annotations for your specific Ingress controller,
+            # e.g., to enable TLS or set custom behaviors.
+            # "annotations": {
+            #     "kubernetes.io/ingress.class": "nginx",
+            #     "cert-manager.io/cluster-issuer": "letsencrypt-prod",
+            # }
+        },
+        "spec": {
+            "rules": [
+                {
+                    "host": host,
+                    "http": {
+                        "paths": [
+                            {
+                                "path": "/",     # or "/notebook"
+                                "pathType": "Prefix",
+                                "backend": {
+                                    "service": {
+                                        "name": svc_name,
+                                        "port": {
+                                            "number": port
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            # For HTTPS/TLS, add something like:
+            # "tls": [
+            #   {
+            #     "hosts": [host],
+            #     "secretName": "some-tls-secret"
+            #   }
+            # ]
+        }
+    }
+
+    networking_v1.create_namespaced_ingress(namespace=namespace, body=ingress_manifest)
+    logging.info(f"Ingress '{ingress_name}' created in '{namespace}'")
+
+def generate_random_token(length: int) -> str:
+    """
+    Generate a cryptographically-secure random token for Jupyter.
+    """
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))

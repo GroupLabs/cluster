@@ -78,12 +78,14 @@ export default function Home() {
         <title>Home</title>
         <meta name="Home" content="Deploy your jobs, powered by GroupLabs" />
       </Head>
-      <div className="w-full h-screen flex items-center justify-center">
+      <div className="w-full h-screen flex flex-col items-center justify-center">
+        <div className="w-[90%] bg-green-400">Analytics</div>
+        <br />
         <div className="w-[90%]">
           {jobsData ? (
             <DataTable data={jobsData} columns={columns} />
           ) : (
-            <div>Loading...</div>
+            <div>Loading Jobs...</div>
           )}
         </div>
       </div>

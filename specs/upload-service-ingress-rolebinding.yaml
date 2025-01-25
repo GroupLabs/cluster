@@ -1,0 +1,14 @@
+# upload-service-ingress-rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ingress-manager-binding
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: upload-service-sa
+    namespace: default
+roleRef:
+  kind: Role
+  name: ingress-manager
+  apiGroup: rbac.authorization.k8s.io
