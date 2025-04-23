@@ -93,10 +93,13 @@ kubectl get svc docker-registry -o jsonpath='{.spec.clusterIP}'
 
 sudo vi /etc/hosts
 
-10.109.120.3 docker-registry.default.svc.cluster.local
+10.98.158.28 docker-registry.default.svc.cluster.local
 
 
-sudo cp ca.crt /etc/docker/certs.d/10.109.120.3:5000/ca.crt
+sudo cp ca.crt /etc/docker/certs.d/10.98.158.28:5000/ca.crt
+
+if using podman:
+sudo cp ca.crt /etc/containers/certs.d/10.98.158.28:5000/ca.crt
 
 sudo mkdir -p /etc/containerd/certs.d/docker-registry.default.svc.cluster.local:5000
 sudo cp ca.crt /etc/containerd/certs.d/docker-registry.default.svc.cluster.local:5000/ca.crt
@@ -160,20 +163,3 @@ sudo systemctl restart containerd
 sudo systemctl restart containerd
 
 https://chatgpt.com/share/67353270-0c64-800c-a091-0b62a4512724
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
