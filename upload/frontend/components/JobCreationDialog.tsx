@@ -98,7 +98,7 @@ export default function JobCreationDialog() {
 
       // Send the FormData to the backend
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SERVER_URL}/upload`,
+        `${process.env.NEXT_PUBLIC_SERVER_URL}/upload/`,
         {
           method: "POST",
           body: formData,

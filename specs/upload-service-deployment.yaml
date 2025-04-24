@@ -12,6 +12,13 @@ spec:
       labels:
         app: upload-service
     spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chmod -R 777 /data/uploads"]
+          volumeMounts:
+            - name: shared-storage
+              mountPath: /data/uploads
       nodeSelector:
         node-role.kubernetes.io/control-plane: ""
       tolerations:

@@ -3,6 +3,8 @@
 
 # artifacts
 *.zip
+package*.json
+bun.lock*
 
 # certs, keys
 *.cert
