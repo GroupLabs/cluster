@@ -228,10 +228,22 @@ def find_dockerfile(upload_path):
             return dockerfile_relpath
     return None
 
-def create_kaniko_job(job_name, upload_id, dockerfile_relpath):
+def create_kaniko_job(job_name: str, upload_id: str, dockerfile_relpath: str):
     batch_v1 = client.BatchV1Api()
+
     context_path = f"/workspace/{upload_id}"
-    registry      = "docker-registry.default.svc.cluster.local:5000"
+    registry     = "docker-registry.default.svc.cluster.local:5000"
+
+    kaniko_args = [
+        f"--dockerfile={dockerfile_relpath}",
+        f"--context={context_path}",
+        f"--destination={registry}/{job_name}:latest",
+        # tell Kaniko which CA cert to trust
+        f"--registry-certificate={registry}=/certs/ca.crt",
+    ]
+
+    if os.getenv("KANIKO_INSECURE", "false").lower() == "true":
+        kaniko_args += ["--insecure", "--skip-tls-verify"]
 
     job_manifest = {
         "apiVersion": "batch/v1",
@@ -253,12 +265,7 @@ def create_kaniko_job(job_name, upload_id, dockerfile_relpath):
                     "containers": [{
                         "name": "kaniko",
                         "image": "gcr.io/kaniko-project/executor:latest",
-                        "args": [
-                            f"--dockerfile={dockerfile_relpath}",
-                            f"--context={context_path}",
-                            f"--destination={registry}/{job_name}:latest",
-                            f"--registry-certificate={registry}=/certs/ca.crt"
-                        ],
+                        "args": kaniko_args,
                         "volumeMounts": [
                             {
                                 "name": "shared-storage",
@@ -270,7 +277,6 @@ def create_kaniko_job(job_name, upload_id, dockerfile_relpath):
                             }
                         ]
                     }],
-                    "restartPolicy": "Never",
                     "volumes": [
                         {
                             "name": "shared-storage",
