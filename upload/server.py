@@ -230,8 +230,8 @@ def find_dockerfile(upload_path):
 
 def create_kaniko_job(job_name, upload_id, dockerfile_relpath):
     batch_v1 = client.BatchV1Api()
-    context_path = f"/workspace/{upload_id}/"
-    registry_address = "docker-registry.default.svc.cluster.local:5000"
+    context_path = f"/workspace/{upload_id}"
+    registry      = "docker-registry.default.svc.cluster.local:5000"
 
     job_manifest = {
         "apiVersion": "batch/v1",
@@ -241,14 +241,23 @@ def create_kaniko_job(job_name, upload_id, dockerfile_relpath):
             "template": {
                 "metadata": {"name": job_name},
                 "spec": {
+                    "nodeSelector": {
+                        "node-role.kubernetes.io/control-plane": ""
+                    },
+                    "tolerations": [{
+                        "key": "node-role.kubernetes.io/control-plane",
+                        "operator": "Exists",
+                        "effect": "NoSchedule"
+                    }],
+                    "restartPolicy": "Never",
                     "containers": [{
                         "name": "kaniko",
                         "image": "gcr.io/kaniko-project/executor:latest",
                         "args": [
                             f"--dockerfile={dockerfile_relpath}",
                             f"--context={context_path}",
-                            f"--destination={registry_address}/{job_name}:latest",
-                            f"--registry-certificate={registry_address}=/certs/ca.crt"
+                            f"--destination={registry}/{job_name}:latest",
+                            f"--registry-certificate={registry}=/certs/ca.crt"
                         ],
                         "volumeMounts": [
                             {
